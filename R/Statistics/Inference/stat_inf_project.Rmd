@@ -1,0 +1,86 @@
+---
+title: "Statistical inference with the GSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+```
+
+### Load data
+
+
+
+```{r load-data}
+load("gss.Rdata")
+```
+
+
+
+* * *
+
+## Part 1: Data
+###Generabizability
+The dataset contains 57061 items randomly sampled from a large number of population. Because it is a random sample the conclution can be generalized to the whole population.
+###causality
+Because this is an observational study and random assignment was not used. Therefore, no conclusions regarding causality can be drawn from this analysis.
+* * *
+
+## Part 2: Research question
+Is there a difference of family income among different gender? I would like to explore why the sex is a factor that causes the income inequity. This analysis is helpful to explore the discrimination situation in the US.
+
+
+* * *
+
+## Part 3: Exploratory data analysis
+Firstly, I analyse the response variable 'coninc'. I plot the histogram of coninc.
+```{r}
+summary(gss$coninc)
+hist(gss$coninc)
+```
+The histogram of response variable is highly right skewed.The mean of 'coninc' may not be a good measure of typic income compared with median.
+Then I plot the boxplot to identify the relationship bewteen the sex and income.
+```{r}
+boxplot(gss$coninc~gss$sex)
+```
+From the graph we can see that the median of income for different sex is slightly different. On average, the income of female is lower than that of male. In order to detect their relationship more precisely, I conduct the inference analysis as follows.
+
+* * *
+
+## Part 4: Inference
+###hypothesis
+H0: The average family income is the same between male and female.
+Ha:The average family income differs between male and  female.
+
+###condition check
+1. the data is collected ramdomly and the sample size is bigger than 30.
+2. The sample size must be less than 10% of the total population and there is no evidence that the variables are dependent. Therefore, the condition of independent vairables is satisfied.
+3. The sample distribution is right skewed, so the condition of normal distribution is not met.
+
+###the method
+In this anlysis, since the explantory variable is two-level, both hypothsis test and confidence interval can be used. Since the normal distribution condition is not met, I decide to use the bootstrap(simulation) method to test hypothesis and interval for median. I ramdomly select samples from the data and find ditribution of median of samples and then use this distribution to caculate interval. The bootstrp method use 'standard error'. 
+
+###inference performance
+I compare two indenpendent medians of sex, so the CI can be used to find the interval of the difference between male's income and female's income.
+```{r}
+inference(y=coninc, x=sex, data=gss, statistic='median', type='ci', null=0, alternative ="twosided", method ='simulation',boot_method = 'se')
+```
+
+
+then I test the hypothsis.
+```{r}
+inference(y=coninc, x=sex, data=gss, statistic='median', type='ht', null=0, alternative ="twosided", method ='simulation',boot_method = 'se')
+```
+
+###result
+From the above analysis, I find the p-value is smaller than 0.0001. There is strong evidence that we should reject the null hypothsis. We conclude that there is significant difference between male's income and female's income. We have 95% confidence that the interval of difference between the median of male's income and female's income is (6930.3833 , 8173.6167).

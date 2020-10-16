@@ -1,0 +1,116 @@
+---
+title: "HW2v1"
+output:
+  word_document: default
+  html_document: default
+---
+
+
+```{r}
+library(moments)
+n=500
+sample=rnorm(n, mean=0.8, sd=0.05)
+lnsample=rlnorm(n, meanlog = 0.8,sdlog = 0.05)
+mean(sample)
+var(sample)
+mean(lnsample)-1
+var(lnsample)
+```
+```{r}
+simple=0
+for (i in 1:length(lnsample)){
+  simple[i]=lnsample[i]-1
+}
+```
+
+
+```{r}
+plot(density(simple), main="Empirical Density of Simple Returns", xlab="", ylab="")
+plot(density(sample), main="Empirical Density of Log Returns", xlab="", ylab="")
+#
+```
+```{r}
+##Q2
+
+p0=12 # initial log price
+T=20 # total number of steps
+sm=500 # num of simulation
+rt=rnorm(T*sm, mean=0.1, sd=0.5) # generate T random variables for asset returns
+dim(rt)=c(T,sm)
+A=1:T
+pt=p0 + apply(rt,2,cumsum) # compute cumulative sums
+plot(A,pt[,1],xlab="Time",ylab="Random Walk",type='l',ylim=c(8, 20)) # plot 1st column/random walk
+for (i in 2:sm){
+lines(A, pt[,i], col=i) # add lines for columns 2-20
+}
+```
+```{r}
+sum(pt[20,]>16)
+sum(pt[20,]>16)/500
+
+```
+
+#with the increase of time, the value of pt increases, while rt is around 0.1.
+
+#477 p values are bigger than 16. Since t in Qestion b (500)is much larger than t in Qa (20). It is more likely to have more p whose value is bigger than 16.
+
+##Q3
+```{r}
+set.seed(3214)
+mu=0.2
+sigma=0.5
+T=1
+S0=100
+n=10000
+dt=T/n
+t=seq(0,T,by=dt)
+R=mu*dt+sigma*rnorm(n,mean = 0, sd = sqrt(dt))
+St=S0 + cumsum(R)
+plot(R, type="o", cex=0.5, xlab="Time")
+plot(St, type="o", cex=0.5, xlab="Time", ylab="geometric Brownian Motion")
+```
+```{r}
+set.seed(3214)
+mu=0.2
+sigma=0.5
+T=1
+S0=100
+n=10000
+sim=500
+dt=T/n
+t=seq(0,T,by=dt)
+R=mu*dt+sigma*rnorm(n*sim,mean = 0, sd = sqrt(dt))
+dim(R)=c(n,sim)
+S=matrix(rep(0,(n+1)*sim),n+1,sim)
+S[1,]=rep(S0,sim)
+for(s in 1:sim){
+  for(i in 1:n){
+    S[i+1,s]=S[i,s]*R[i,s]+S[i,s]}
+}
+
+```
+```{r}
+x=1:10001
+Mg=0
+for (i in 1:10001){
+  Mg[i]=mean(S[i,])
+}
+plot(x,Mg,xlab="Time",ylab="Geometric Brownian Motion",type='l');
+
+plot(x,S[,1],xlab="Time",ylab="Geometric Brownian Motion",type='l',ylim=c(100,300))
+for (i in 2:sim){
+lines(x, S[,i], col=i) 
+}
+```
+```{r}
+sum(S[8001,]>120)
+sum(S[8001,]>120)/length(S[8001,])
+
+```
+```{r}
+
+```
+
+## R Markdown
+
+

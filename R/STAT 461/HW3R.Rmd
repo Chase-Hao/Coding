@@ -1,0 +1,107 @@
+---
+title: "R Notebook"
+output:
+  word_document: default
+  html_notebook: default
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+#multi-step price of call
+C=0;t=1;S0=100;n=10;u=1.1;d=0.9;r=0.06;k=110;
+q=(exp(r*t)-d)/(u-d)
+for(j in 0:10){
+  C=C+max(c(S0*u^j*d^(n-j)-k,0))*dbinom(j,n,q)
+}
+print(C*exp(-r*n*t))
+# dbinom(1,3,0.1)
+```
+```{r}
+#probability of St > K
+S0=60; t=1; K=68; r=0.06; sig=0.1;
+
+pnorm((log(S0/K)+(r-sig^2/2)*t)/sig*sqrt(t))
+```
+
+
+```{r}
+#interval of St
+u=(r-sig^2)*t; sigx=sig*sqrt(t);
+p_u=0.975; p_d=0.025
+x_u=qnorm(p_u)*sig*sqrt(t)+(r-sig^2)*t
+x_d=qnorm(p_d)*sig*sqrt(t)+(r-sig^2)*t
+St_u=S0*exp(x_u)
+St_d=S0*exp(x_d)
+St_u;St_d;
+```
+```{r}
+#Fair price
+S0=60; t=1; K=68; r=0.06; sig=0.1;
+d1=(log(S0/K)+(r+sig^2/2)*t)/(sig*sqrt(t));
+d2=(log(S0/K)+(r-sig^2/2)*t)/(sig*sqrt(t));
+print('d1');
+d1;
+print('d2');
+d2;
+print('pnorn(d1)');
+pnorm(d1);
+print('pnorn(d2)');
+pnorm(d2);
+C0=S0*pnorm(d1)-K*exp(-r*t)*pnorm(d2);
+print('C0');C0;
+print('pnorn(-d1)');
+pnorm(-d1);
+print('pnorn(-d2)');
+pnorm(-d2);
+P0=K*exp(-r*t)*pnorm(-d2)-S0*pnorm(-d1)
+print('P0');P0;
+```
+```{r}
+library(ggplot2)
+S0=60; t=1; r=0.06; sig=0.1;
+K <- seq(50, 80, by=0.01)
+d1=(log(S0/K)+(r+sig^2/2)*t)/(sig*sqrt(t));
+d2=(log(S0/K)+(r-sig^2/2)*t)/(sig*sqrt(t));
+C0=S0*pnorm(d1)-K*exp(-r*t)*pnorm(d2);
+P0=K*exp(-r*t)*pnorm(-d2)-S0*pnorm(-d1);
+df=data.frame(K,C0)
+df2=data.frame(K,P0)
+g <- ggplot(df, aes(K,C0))+ geom_line(col='red') + ggtitle("K & C0")
+f <- ggplot(df2, aes(K,P0))+ geom_line(col='red') + ggtitle("K & P0")
+g;f;
+```
+```{r}
+S0=60; t=1; r=0.06; sig=0.1;K=68;
+r=seq(0.01, 0.1, by=0.0001)
+d1=(log(S0/K)+(r+sig^2/2)*t)/(sig*sqrt(t));
+d2=(log(S0/K)+(r-sig^2/2)*t)/(sig*sqrt(t));
+C0=S0*pnorm(d1)-K*exp(-r*t)*pnorm(d2);
+P0=K*exp(-r*t)*pnorm(-d2)-S0*pnorm(-d1);
+df=data.frame(r,C0);
+df2=data.frame(r,P0)
+g <- ggplot(df, aes(r,C0))+ geom_line(col='red') + ggtitle("r & C0")
+f <- ggplot(df2, aes(r,P0))+ geom_line(col='red') + ggtitle("r & P0")
+g;f;
+```
+```{r}
+S0=60; t=1; r=0.06; sig=0.1;K=68;
+sig=seq(0.1, 0.3, by=0.001)
+d1=(log(S0/K)+(r+sig^2/2)*t)/(sig*sqrt(t));
+d2=(log(S0/K)+(r-sig^2/2)*t)/(sig*sqrt(t));
+C0=S0*pnorm(d1)-K*exp(-r*t)*pnorm(d2);
+P0=K*exp(-r*t)*pnorm(-d2)-S0*pnorm(-d1);
+df=data.frame(sig,C0)
+df2=data.frame(sig,P0)
+g <- ggplot(df, aes(sig,C0))+ geom_line(col='red') + ggtitle("sig & C0")
+f <- ggplot(df2, aes(sig,P0))+ geom_line(col='red') + ggtitle("sig & P0")
+g;f;
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.

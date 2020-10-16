@@ -1,0 +1,72 @@
+```{r}
+#transfer date type
+mode(SOTU$Date)
+SOTU$Date=as.Date(SOTU$Date,format="%B %d %Y")
+stock_returns$Date=as.Date(as.character(stock_returns$Date), format="%Y%m%d")
+```
+
+
+```{r}
+library(sqldf)
+NonSOTU=sqldf("select * from stock_returns where Date not in (select Date from SOTU)")
+
+library(dplyr)
+SOTU=left_join(SOTU,stock_returns,by='Date')
+SOTU=na.omit(SOTU)
+NonSOTU=na.omit(NonSOTU)
+
+```
+
+```{r}
+#calculate the average of SOTU
+mean(SOTU$Return_incl_dividends)
+sd(SOTU$Return_incl_dividends)
+#non-SOTU
+mean(NonSOTU$Return_incl_dividends)
+sd(NonSOTU$Return_incl_dividends)
+#general
+mean(stock_returns$Return_incl_dividends)
+sd(stock_returns$Return_incl_dividends)
+```
+
+```{r}
+SOTU$year=format(SOTU$Date,"%Y")
+SOTU$year<-as.numeric(SOTU$year)
+stock_returns$year=format(stock_returns$Date,"%Y")
+stock_returns=na.omit(stock_returns)
+stock_returns$year<-as.numeric(stock_returns$year)
+stock_returns=left_join(stock_returns,presidency,by='year')
+```
+```{r}
+library(dplyr)
+year=c()
+for (i in 1926:2019){year <- c(year, i)}
+year=data_frame(year)
+year=left_join(year,SOTU,by='year')
+year$Party[year$year<=1933 ]<- "Re"
+```
+
+```{r}
+sqldf("select * from year where Party is NULL")
+```
+```{r}
+# mean and sd group by party for stock_returns
+tapply(stock_returns$Return_incl_dividends,stock_returns$Party,mean)
+tapply(stock_returns$Return_incl_dividends,stock_returns$Party,sd)
+
+```
+```{r}
+# mean and sd group by party for SOTU
+tapply(SOTU$Return_incl_dividends,SOTU$Party,mean)
+tapply(SOTU$Return_incl_dividends,SOTU$Party,sd)
+```
+```{r}
+# mean and sd group by party for Non-SOTU
+tapply(NonSOTU$Return_incl_dividends,NonSOTU$Party,mean)
+tapply(NonSOTU$Return_incl_dividends,NonSOTU$Party,sd)
+```
+```{r}
+write.csv(SOTU,file='C:/Users/haoch/OneDrive - UW-Madison/2nd Semester/RA/SOTU/SOTUdata.csv')
+write.csv(NonSOTU,file='C://Users/haoch/OneDrive - UW-Madison/2nd Semester/RA/SOTU/NonSOTUdata.csv')
+```
+

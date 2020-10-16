@@ -1,0 +1,103 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+plot(HW1Q5)
+```
+```{r}
+fit<-lm(Y~X,data=HW1Q5)
+plot(HW1Q5$X,HW1Q5$Y,xlab="X",ylab="Y")
+abline(fit)
+```
+```{r}
+summary(fit)
+```
+```{r}
+ANOVA=aov(Y~X, data = HW1Q5)
+summary(ANOVA)
+```
+```{r}
+d=density(fit[['residuals']])
+plot(d,main='Residual Plot',xlab='Residual value')
+```
+
+
+```{r}
+qqnorm(fit[['residuals']])
+qqline(fit[['residuals']])
+```
+```{r}
+plot(fit$fitted.values, fit$residuals, xlab="Fitted values", ylab="Residuals",
+main="Residuals vs. Fitted Values")
+```
+
+
+```{r}
+library(car)
+qqPlot(fit[['residuals']],ylab = 'residual')
+```
+```{r}
+library(quantmod)
+getSymbols("^GSPC",from="2017-01-01",to="2020-09-02")
+GSPC.Sim=diff(GSPC$GSPC.Adjusted)[-1,]
+```
+```{r}
+Sys.getlocale()
+Sys.setlocale("LC_TIME", "English")
+chartSeries(GSPC.Sim,theme="white")
+```
+```{r}
+library(fBasics)
+basicStats(GSPC.Sim)
+```
+```{r}
+normalTest(as.vector(GSPC.Sim), method = "jb")
+```
+```{r}
+plot(density(GSPC.Sim), main="Empirical Density of Returns", xlab="", ylab="")
+x=seq(-0.08,0.08,0.001) # generate a sequence of values between (-0.08, 0.08)
+y=dnorm(x,mean(GSPC$GSPC.Adjusted),sd(GSPC$GSPC.Adjusted)) # compute corresponding density values
+lines(x,y,lty=2,col="red") # add line for normal curve with same mean and sd
+```
+```{r}
+GSPC.lrtn=diff(log(GSPC$GSPC.Adjusted))[-1,]
+basicStats(GSPC.lrtn)
+```
+```{r}
+mean(GSPC.lrtn)/(sqrt(var(GSPC.lrtn)/length(GSPC.lrtn)))
+t.test(GSPC.lrtn,mu=0)
+```
+```{r}
+skewness(GSPC.lrtn)/sqrt(6/length(GSPC.lrtn)) #sysmertic  distribution
+kurtosis(GSPC.lrtn)/sqrt(24/length(GSPC.lrtn)) # tail behavior distribution
+```
+```{r} 
+#Q7
+getFX("USD/CNY",from="2020-04-01",to="2020-9-2")
+```
+```{r}
+USDCNY.lrtn=diff(log(USDCNY))[-1,] 
+basicStats(USDCNY.lrtn)
+```
+```{r}
+plot(density(USDCNY.lrtn), main="Empirical Density of Log Returns", xlab="", ylab="")
+```
+```{r}
+t.test(USDCNY.lrtn,mu=0)
+```
+```{r}
+normalTest(as.vector(GSPC.Sim), method = "jb")
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.

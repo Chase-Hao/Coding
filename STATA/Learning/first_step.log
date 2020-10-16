@@ -1,0 +1,41 @@
+--------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  D:\stataf\first_step.log
+  log type:  text
+ opened on:  16 Sep 2019, 11:16:26
+
+. clear all
+
+. 
+. // use 2000_acs_sample.dta
+. // describe
+. 
+. // label list 
+. // duplicates report serial pernum
+. 
+. // list if _n==5
+. // list if pernum==1 & serial==242
+. // //for observation 5
+. // display us2000c_age[5]
+. 
+. use atus
+file atus.dta not found
+r(601);
+
+end of do-file
+
+r(601);
+
+. cd
+D:\stataf
+
+. cd ../stataDB/dws
+D:\stataDB\dws
+
+. use 2000_acs_sample
+
+. do "C:\Users\haoch\AppData\Local\Temp\STD55b0_000000.tmp"
+
+. // egen meanx = function  like mean(x)
+. // gen or replace x = some math
+. capture log close 
