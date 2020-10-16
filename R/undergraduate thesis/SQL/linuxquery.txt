@@ -1,0 +1,12 @@
+﻿linux创建连接
+ln -s /usr/local/mysql/bin/mysql /usr/bin
+ps -ef | grep mysql查看进程
+nohup 你的shell命令 &
+
+nohup mysql -u root -pA624b1648fa3 thesis < /home/my.sql &
+nohup mysql -u root -pA624b1648fa3 thesis < /home/my.sql > /dev/null 2>&1 &
+nohup mysql  -u root -pA624b1648fa3 -e 'SET SQL_SAFE_UPDATES = 0;
+ps-A查看所有进程
+jobs后台进程
+getconf LONG_BIT查看系统多少位
+ R CMD BATCH "/home/2.R"

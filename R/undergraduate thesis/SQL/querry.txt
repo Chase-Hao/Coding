@@ -1,0 +1,182 @@
+﻿备份/usr/local/mysql/bin/mysqldump -u root -pA624b1648fa3 thesis > /home/linux.sql
+恢复mysql -uroot -p mydb3 < /home/final.sql
+ALTER TABLE `thesis`.`bv_csv` 
+ CHANGE `上市公司代码_Comcd` `Comcd` CHAR(7) , 
+ CHANGE `最新公司全称_Lcomnm` `Lnm` VARCHAR(77) , 
+ CHANGE `截止日期_EndDt` `截止日期_EndDt` DATE , 
+ CHANGE `所有者权益合计(元)_TotSHE` `TE` FLOAT;
+
+
+
+ALTER TABLE `thesis`.`delist_csv` 
+ CHANGE `股票代码_StkCd` `StkCd` VARCHAR(10),
+ CHANGE `最新股票名称_LStkNm` `LNm` VARCHAR(12) NOT NULL, 
+ CHANGE `退市日期_DelstDt` `DelstDt` DATE NOT NULL, 
+ CHANGE `退市前代码_StkCdBfDelst` `stkCdBfDelst` VARCHAR(10);
+
+ ALTER TABLE `thesis`.`mv_csv` 
+ CHANGE `上市公司代码_Comcd` `Comcd` CHAR(7), 
+ CHANGE `证券代码_R_SecuCode` `SecuCode` CHAR(9), 
+ CHANGE `股票代码_Stkcd` `Stkcd` VARCHAR(6) NOT NULL, 
+ CHANGE `最新股票名称_Lstknm` `Lstknm` CHAR(12), 
+ CHANGE `证监会行业门类代码_Csrciccd1` `hangye` CHAR(1), 
+ CHANGE `日期_Date` `日期_Date` DATE NOT NULL, 
+ CHANGE `年流通市值(元)_Yrtmv` `mv` FLOAT NOT NULL, 
+ CHANGE `年末流通市值(元)_Yrtmv_End` `mv_End` FLOAT;
+
+ RENAME TABLE bv_csv TO bv;
+RENAME  TABLE delist_csv TO delist;
+RENAME TABLE  mv_csv TO mv;
+RENAME TABLE ratio_csv TO ratio;
+
+CREATE TABLE ratio AS (SELECT DISTINCT * FROM ratio);
+select count(1) from (select distinct * from rt)r;
+
+
+
+delete from mv where hangye='J';
+create table newbv as (select * from bv1 where enddt like'%-06-%');
+create table newratio as (select * from ratio1 where enddt like'%-12-%');
+alter table newratio drop column Astkcd;
+摘除金融公司股票，ST
+
+select comcd from newbv where comcd in (select comcd from mv where hangye='J');
+ delete from mv where lstknm like '%ST%';
+
+ select year('enddt') from mv where Comcd='c000002';
+ 
+select substr('enddt',0,4) from mv where Comcd='c000002'; 只能截取字符串类型
+ alter table newbv add column year char(4);
+ update newbv set year=year(enddt);
+ 创建外键
+ alter table mv change year year varchar(20);
+ 
+  update mv set year=concat(year,comcd);
+   select * from newratio where comcd='c000002';
+return表外键
+update newrt set dt=year(date_sub(dt,interval 6 month));
+并表联立
+   create table tt1 as (select tt.*, newratio.roa, newratio.roe, newratio.gross from tt left join newratio on tt.year=newratio.year);
+
+    create table tt as (select mv.comcd, mv.Lstknm, mv.dt mv_dt, mv.mv, mv.mv_End, newbv.TE, newbv.enddt bv_td from mv left join newbv on mv.year=newbv.year );
+
+    create table newrt as (select *  from rt1 where hangye<>'J' and lnm not like '%ST%' and lnm not like ‘%B%’);
+    create table tt2 as (select * from newrt left join tt1 on newrt.year=tt1.year);
+
+导出数据
+
+SELECT distinct * INTO OUTFILE 'D:/rt.csv'
+  FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' 
+  LINES TERMINATED BY '\n'
+  FROM rt;
+
+  select sum(te) from bv2 where enddt between enddt and date_sub(enddt, interval 1 year);
+
+求累计收益momentum
+Q1：公司在上市第一年内累计收益是缺失的，但这段代码仍求出了上市后不足一年的累计收益，在后文筛变量中我会将上市不足一年的公司数据筛去
+alter table newrt add column sum float;
+
+DROP PROCEDURE IF EXISTS ROWPERROW;
+DELIMITER //
+CREATE PROCEDURE ROWPERROW()
+BEGIN
+DECLARE n INT DEFAULT 0;
+DECLARE i INT DEFAULT 0;
+declare a date;
+declare b date;
+declare sm float;
+declare nm char(7);
+SELECT COUNT(1) FROM newrt INTO n;
+SET i=0;
+WHILE i<n DO 
+select comcd1 from newrt limit i, 1 into nm;
+select returndt from newrt limit i,1 into a;
+select DATE_SUB(a, INTERVAL 1 year) into b;
+select sum(wreturn) from newrt where returndt<a and returndt>b and comcd1=nm into sm;
+update newrt set sum=sm where comcd1=nm and returndt=a;
+SET i = i + 1;
+END WHILE;
+End//
+DELIMITER ;
+CALL ROWPERROW();
+
+查询第一个为空的行
+drop PROCEDURE if exists a;
+DELIMITER //
+CREATE PROCEDURE a()
+BEGIN
+DECLARE n INT DEFAULT 0;
+DECLARE i INT DEFAULT 0;
+declare x float;
+select count(1) from rt1 into n;
+set i=0;
+myloop:while i <n DO
+select sum from rt1 limit i,1 into x;
+if x=0 then
+select i;
+ LEAVE myloop;
+   END IF;
+   set i=i+1;
+ end while myloop;
+ end //
+DELIMITER ;
+call a();
+
+TODO
+
+
+并表
+return t年6月--t+1年6月 对应
+市值mv 数据为t-1年12月
+所有者权益bv- t-1年12月底
+roa/roe/gpa-t-1年12月
+momument上一年累加 
+
+求Book/Market ratio
+
+除去空值
+
+小数化return和profitability， mom
+log化me，B/M
+
+
+
+DROP PROCEDURE IF EXISTS ROWPERROW;
+DELIMITER //
+CREATE PROCEDURE ROWPERROW()
+BEGIN
+DECLARE n INT DEFAULT 0;
+DECLARE i INT DEFAULT 0;
+declare a date;
+declare b date;
+declare sm float;
+declare nm char(7);
+SELECT COUNT(1) FROM newrt INTO n;
+SET i=0;
+WHILE i<n DO 
+select comcd1 from newrt limit i, 1 into nm;
+select returndt from newrt limit i,1 into a;
+select DATE_SUB(a, INTERVAL 1 year) into b;
+select sum(wreturn) from newrt where returndt<a and returndt>b and comcd1=nm into sm;
+update newrt set sum=sm where comcd1=nm and returndt=a;
+SET i = i + 1;
+END WHILE;
+End//
+DELIMITER ;
+CALL ROWPERROW();' thesis > /dev/null 2>&1 &
+
+
+
+更改year label 年底数据对应下一年
+update newbv set year=concat(year(date_add(enddt,interval 1 month)),comcd);
+
+数据库下载年book value和market value然而有些数据有重复，同一年同家公司有多个值
+select count(1) from (select * from newmv group by year having count(1)>1)t;
+同一年多个日期删除，只保留12月份的
+delete from newmv where dt not like '%-12%';
+股票收益数据08年开始，公司数据05年就有，导致无法筛
+有问题的数据gpa和bv
+
+return
+除去金融行业，除去st，除去b股，？？？除去月交易时间小于？？
+return的年数减去半年取年数和月份数和com合并做id键
