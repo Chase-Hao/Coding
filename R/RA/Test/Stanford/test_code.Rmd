@@ -1,0 +1,211 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(stringr)
+library(splitstackshape)
+library(ggplot2)
+library(tidyr)
+```
+
+
+```{r}
+Sys.setlocale("LC_TIME", "English")
+test_data <- read.csv("C:/Users/haoch/Desktop/Task package/test_data.txt")
+test=test_data
+test$ed_tc =as.POSIXct(test$ed_tc, format = "%d%b%Y %H:%M:%S",tz="UTC" )
+test$dcord_tc =as.POSIXct(test$dcord_tc, format = "%d%b%Y %H:%M:%S",tz="UTC" )
+test$shiftid=gsub("noon", "12 p.m.", test$shiftid)
+
+```
+```{r}
+demo=test
+demo=separate(demo, 'shiftid', paste("a", 1:6, sep=""), sep=" ",remove =FALSE)
+demo$start=gsub("\\.", "",paste0(demo$a1,demo$a2,":00:00",demo$a3))
+demo$end=gsub("\\.", "",paste0(demo$a1,demo$a5,":00:00",demo$a6))
+demo$start=as.POSIXct(demo$start, format = "%d%b%Y%I:%M:%S%p",tz="UTC" )
+demo$end=as.POSIXct(demo$end, format = "%d%b%Y%I:%M:%S%p",tz="UTC" )
+```
+
+```{r}
+demo$end=if_else(demo$start>=demo$end,demo$end+days(1),demo$end)
+demo$during=demo$end-demo$start
+demo1=demo
+demo1[paste(c(rep("a",6)),c(1:6),sep='')]=NULL
+
+```
+
+
+Q0
+
+```{r}
+summa=data.frame(unclass(summary(demo1)), check.names = FALSE, stringsAsFactors = FALSE)
+count(demo1,ed_tc>=dcord_tc)
+count(demo1,ed_tc>=end)
+count(demo1,dcord_tc<=start)
+filter(demo1,dcord_tc<=start)
+filter(demo1,ed_tc>=dcord_tc)
+```
+Q1
+```{r}
+demo1 %>% summarise(before=sum(ed_tc<start),
+                    after=sum(dcord_tc>end),
+                    br=sum(ed_tc<start)/nrow(demo1),
+                    ar=sum(dcord_tc>end)/nrow(demo1))
+
+```
+
+Q2
+```{r}
+demo1$ed_hrs = as.numeric(strftime(demo1$ed_tc, format = "%H",tz="UTC"))
+avg_serv=demo1 %>% group_by(ed_hrs) %>% summarise(m = mean(xb_lntdc)) %>%
+  ungroup()
+ggplot(avg_serv,aes(ed_hrs,m))+geom_line()+scale_x_continuous(breaks=seq(0,24, by=1))
+#extra points
+demo1$ed_hrs=as.numeric(demo1$ed_hrs)
+hr_lm=lm(xb_lntdc~ed_hrs,demo1)
+summary(hr_lm)
+```
+```{r}
+demo1$ed_hrs=as.factor(demo1$ed_hrs)
+dat.aov <- aov(xb_lntdc~ed_hrs,demo1)
+summary(dat.aov)
+```
+
+Q3
+```{r eval = FALSE}
+new_frame = function(x) {
+  cens = data.frame()
+  for (i in 1:nrow(x)) {
+    d = x$during[i]
+    for (j in 1:(d + 4)) {
+      ind = j - d - 1
+      con1 = x$ed_tc[i] <= x$start[i] + hours(j - 1)
+      con2 = x$dcord_tc[i] > x$start[i] + hours(j - 1)
+      con3 = x$ed_tc[i] < x$dcord_tc[i]
+      if (con1 & con2 & con3) {
+        xp_df <- x[i, ]
+        xp_df$index = ind
+        cens = rbind(cens, xp_df)
+      }
+    }
+  }
+  return(cens)
+}
+
+cens1=new_frame(demo1)
+```
+
+```{r eval = FALSE}
+census=cens1 %>% group_by(shiftid,phys_name,index)%>%
+  summarise(num=n())
+```
+Extra point
+
+Lower bound
+```{r eval = FALSE}
+tem=demo1
+low1=data.frame()
+for (i in 1:nrow(tem)) {
+  d=tem$during[i]
+  for (j in 1:(d+4)) {
+    ind = j - d- 1
+    con1 = tem$ed_tc[i] <= tem$start[i] + hours(j - 1)
+    con2 = tem$dcord_tc[i] > tem$start[i] + hours(j)
+    
+    if (con1 & con2) {
+      temp_df <- tem[i,]
+      temp_df$index = ind
+      low1 = rbind(low1, temp_df)
+    }
+  }
+}
+```
+Upper bound
+```{r eval = FALSE}
+tem=demo1
+up1 = data.frame()
+for (i in 1:nrow(tem)) {
+  d = tem$during[i]
+  for (j in 1:(d + 4)) {
+    ind = j - d - 1
+    con1 = tem$ed_tc[i] <= tem$start[i] + hours(j - 1)
+    con2 = tem$dcord_tc[i] > tem$start[i] + hours(j - 1)
+    con3 = tem$ed_tc[i] < tem$dcord_tc[i]
+    con4 = tem$ed_tc[i] > tem$start[i] + hours(j - 1)
+    con5 = tem$ed_tc[i] < tem$start[i] + hours(j)
+    
+    if (con1 & con2 | con3 & con4 & con5) {
+      temp_df <- tem[i,]
+      temp_df$index = ind
+      up1 = rbind(up1, temp_df)
+    }
+  }
+}
+```
+
+```{r eval = FALSE}
+census_up=up1 %>% group_by(shiftid,phys_name,index)%>%
+  summarise(num_up=n())
+census_low=low1 %>% group_by(shiftid,phys_name,index)%>%
+  summarise(num_low=n())
+```
+```{r eval = FALSE}
+census$id=paste(census$shiftid,census$phys_name,census$index)
+census_up$id=paste(census_up$shiftid,census_up$phys_name,census_up$index)
+census_low$id=paste(census_low$shiftid,census_low$phys_name,census_low$index)
+census_final=full_join(census,full_join(census_up,census_low %>% select(id,num_low),by='id')%>%
+                         select(id,num_up,num_low), by='id'
+                       )
+census_final$id=NULL
+
+```
+
+```{r r eval = FALSE}
+sum_census=census_final %>% group_by(index)%>%summarise(avg_num=mean(num),avg_up=mean(num_up),avg_down=mean(num_low))%>%ungroup()
+sum_census$index=as.numeric(sum_census$index)
+ggplot(sum_census, aes(x = index, y = avg_num))+geom_line()+scale_x_continuous(breaks=seq(-11,4, by=1))
+```
+
+
+```{r r eval = FALSE}
+write.csv(census_final,file="E:\\census_final.csv")
+```
+Q4
+```{r r eval = FALSE}
+tem=demo1
+tem=tem%>%group_by(shiftid)%>%mutate(patient_num=n())%>%ungroup()
+tem$lndiff=log(as.numeric(difftime(tem$dcord_tc, tem$ed_tc, units='hours')))
+tem=filter(tem,!is.na(lndiff))
+tem=filter(tem,!is.nan(lndiff))
+tem=filter(tem,lndiff!=Inf)
+tem=filter(tem,lndiff!=-Inf)
+```
+```{r}
+tem$avg_patient=tem$patient_num/tem$during
+tem$phys_name=as.factor(tem$phys_name)
+fast=lm(lndiff~phys_name+during+avg_patient+xb_lntdc,tem)
+summary(fast)
+```
+```{r}
+cof=fast$coefficients
+cof_phy=cof[-(44:46)]
+cof_phy=cof_phy[-1]
+min(cof_phy)
+cof_phy
+#Woodrow
+```
+
+```{r}
+ggplot(tem, aes(x = lndiff, y = phys_name))+geom_boxplot()+ geom_boxplot(data = subset(tem, phys_name == 'Thomas'), color = "red")+
+  geom_boxplot(data = subset(tem, phys_name == 'Woodrow'), color = "green")
+  #facet_wrap( ~ group)
+```
+

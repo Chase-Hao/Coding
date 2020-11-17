@@ -1,0 +1,87 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  word_document: default
+  pdf_document: default
+---
+
+
+```{r}
+library(readr)
+Task <- read_csv("C:/Users/haoch/Downloads/RA_21_22.csv")
+```
+
+
+```{r}
+Task$wealth=Task$asset_total-Task$debt_total
+```
+```{r}
+library(sqldf)
+Mwealth=sqldf('select year,education,race,median(wealth) median_w from Task group by year, race, education ')
+Rwealth=sqldf('select year,race,median(wealth) median_w from Task group by year, race')
+Ewealth=sqldf('select year,education,median(wealth) median_w from Task group by year, education ')
+```
+```{r}
+library(ggplot2)
+Rwealth$race=factor(Rwealth$race)
+ggplot(Rwealth,aes(x=year,y=median_w,color=race),x)+geom_point()+geom_line()
+```
+```{r}
+Ewealth$education=factor(Ewealth$education)
+ggplot(Ewealth,aes(x=year,y=median_w,color=education))+geom_point()+geom_line()
+```
+```{r}
+Mwealth$race_edu=paste(Mwealth$race,Mwealth$education)
+Mwealth$race_edu=factor(Mwealth$race_edu)
+ggplot(Mwealth,aes(x=year,y=median_w,color=race_edu))+geom_point()+geom_line()
+```
+```{r}
+Task$housing_wealth=Task$asset_housing-Task$debt_housing
+R_h_wealth=sqldf('select year,race,median(housing_wealth) median_h_w from Task group by year, race')
+R_h_wealth=subset(R_h_wealth,race == 'black' | race == 'white')
+```
+```{r}
+R_h_wealth$race=factor(R_h_wealth$race)
+ggplot(R_h_wealth,aes(x=year,y=median_h_w,color=race))+geom_point()+stat_smooth(method="lm", se=FALSE,linetype='dashed')+geom_line()
+```
+```{r}
+Task$non_housing=Task$wealth-Task$housing_wealth
+Task_25=sqldf('select * from Task where age >=25')
+R_wealth_25=sqldf('select year,race,median(non_housing) median_nh_w, median(housing_wealth) median_h_w from Task_25 group by year, race')
+R_wealth_25=subset(R_wealth_25,race == 'black' | race == 'white')
+```
+```{r}
+R_wealth_25$race=factor(R_wealth_25$race)
+ggplot(R_wealth_25,aes(x=year,y=median_h_w,color=race))+geom_point()+geom_line()+labs(title = "median housing wealth for people>=25")
+```
+```{r}
+ggplot(R_wealth_25,aes(x=year,y=median_nh_w,color=race))+geom_point()+geom_line()+labs(title = "median nonhousing wealth for people>=25")
+```
+
+
+```{r}
+a=R_wealth_25[which(R_wealth_25$year==2007),"median_h_w"]
+R_wealth_25$base=0
+R_wealth_25[which(R_wealth_25$race=='black'),]$base=a[1]
+R_wealth_25[which(R_wealth_25$race=='white'),]$base=a[2]
+R_wealth_25$diff=R_wealth_25$median_h_w-R_wealth_25$base
+R_wealth_25$prop=R_wealth_25$diff/R_wealth_25$base
+R_wealth_25[is.na(R_wealth_25)]=0
+```
+```{r}
+ggplot(R_wealth_25,aes(x=year,y=diff,color=race))+geom_point()+geom_line()+labs(title = "loss in housing wealth in terms of dollar")
+```
+```{r}
+ggplot(R_wealth_25[which(R_wealth_25$race=='white'),],aes(x=year,y=prop))+geom_point()+geom_line()+labs(title = "loss in housing wealth in terms of proportion(white people)")
+```
+
+```{r}
+#test in different waywhether all medians of backs' housing income are 0
+#library(dplyr)
+#test=aggregate(Task_25[, 'housing_wealth'], list(Task_25$race,Task_25$year), median)
+#test[which(test$Group.1=='black'),]
+```
+

@@ -22,14 +22,14 @@ test=winsor(test,"gpa")
 
 ##allr test,rt
 library(plyr)
-quan <- function(x, c){
+quan <- function(x){
   z <- ddply(x, .(year), .fun = function(xx){
-    quantile(c,prob = seq(from =0, to=1, by=0.1))
+    quantile(xx$size,prob = seq(from =0, to=1, by=0.1))
   })
   return(z)
 }
 
-b=quan(tt4,tt4$mv)
+b=quan(tt4)
 
 sort=function(tb,col,rid){
   for (i in 1:nrow(tb)){
