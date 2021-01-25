@@ -1,0 +1,123 @@
+---
+title: "data task"
+output:
+  html_document:
+    df_print: paged
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+Sys.setlocale("LC_TIME", "English")
+```
+```{r}
+library(readr)
+library(sqldf)
+library(lubridate)
+library(dplyr)
+library(broom)
+library(stargazer)
+library(ggplot2)
+library(psych)
+```
+# Q1
+## a
+```{r}
+ratings <- read_csv("C:/Users/haoch/Desktop/ucla data task/ratings.csv")
+```
+```{r}
+#number of rows
+nrow(ratings)
+```
+
+## b
+```{r}
+#number of unique aspect and unique worker
+sqldf("select count(distinct aspect) from ratings")
+sqldf("select count(distinct worker) from ratings")
+``` 
+## c
+```{r}
+#generate ID by combining aspect and worker
+ratings$ID=paste(ratings$aspect,ratings$worker)
+#unique respond
+sqldf("select count(distinct ID) from ratings")
+#take the most recent one
+ratings_1=ratings%>%group_by(ID)%>%slice(which.max(time))
+#number of dropped observations
+nrow(ratings)-nrow(ratings_1)
+```
+## d
+```{r}
+#subjective rating for each respondent
+riches=ratings_1%>%group_by(worker)%>%summarise(sub_riches=mean(rating))
+quantile(riches$sub_riches)
+```
+# Q2
+## a
+```{r}
+demographics <- read_csv("C:/Users/haoch/Desktop/ucla data task/demographics.csv")
+```
+## b
+```{r}
+nrow(demographics)
+```
+## c
+```{r}
+demo=left_join(demographics,riches, by='worker')
+```
+## d
+```{r}
+reg1=lm(sub_riches~income,data=demo)
+summary(reg1)
+```
+```{r echo = FALSE, eval = FALSE}
+#output as latex
+stargazer(reg1, type='latex', summary=FALSE)
+```
+## e
+```{r}
+reg2=lm(sub_riches~income+age+I(age^2)+male+education+race,data=demo)
+summary(reg2)
+```
+```{r echo = FALSE, eval = FALSE}
+#output as latex
+stargazer(reg2, type='latex', summary=FALSE)
+```
+# Q3
+## a
+```{r}
+#select health rate
+health=sqldf("select worker, rating from ratings_1 where aspect=='your health'")
+demo=left_join(demo,health,by='worker')
+colnames(demo)[which(names(demo) == "rating")] <- "Health_riches"
+```
+
+```{r}
+ggplot(demo, aes(x=age,y=Health_riches))+
+  geom_point(color = "blue")+
+  geom_point(aes(x = income/5000), color = "red") +
+  scale_x_continuous("age(year)",sec.axis =sec_axis(~.*5000, name = "income(dollar)")) +
+  scale_y_continuous("Health_riches") +
+  theme(axis.line.x.top = element_line(color = "red"), 
+        axis.ticks.x.top = element_line(color = "red"),
+        axis.text.x.top = element_text(color = "red"), 
+        axis.title.x.top = element_text(color = "red"),
+        axis.line.x.bottom = element_line(color = "blue"), 
+        axis.ticks.x.bottom = element_line(color = "blue"),
+        axis.text.x.bottom = element_text(color = "blue"), 
+        axis.title.x.bottom = element_text(color = "blue")
+        ) 
+```
+
+## b 
+```{r}
+#alternative way
+pairs.panels(demo[,c('age','income','Health_riches')], 
+             method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density =  TRUE,  # show density plots
+             ellipses = TRUE # show correlation ellipses
+             )
+```
+

@@ -1,0 +1,55 @@
+---
+title: "Task2"
+output: html_document
+---
+# Time:1 hour
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r message=FALSE,warning=FALSE}
+library(dplyr)
+library(readr)
+```
+
+## import data
+
+Name columns
+```{r message=FALSE}
+scp_1205 <- read_csv("C:/Users/haoch/Desktop/RA test/Kellog data task/Medicare_Advantage/scp-1205.csv", 
+    col_names = c("countyname","state","contract","healthplanname","typeofplan","countyssa","eligibles","enrollees","penetration","ABrate"))
+```
+
+## Data clean
+
+```{r message=FALSE}
+#replace NA with 0
+scp_1205$eligibles[is.na(scp_1205$eligibles)]=0
+scp_1205$enrollees[is.na(scp_1205$enrollees)]=0
+scp_1205$penetration[is.na(scp_1205$penetration)]=0
+scp_1205$ABrate[is.na(scp_1205$ABrate)]=0
+#remove observations whose state variables are NA
+scp_1205=subset(scp_1205,!is.na(state))
+#exclude territories (Puerto Rico and Guam)
+scp_1205=filter(scp_1205,state!="PR"|state!="GU")
+```
+
+## Group by state and countyname and create new variables
+```{r message=FALSE}
+demo=scp_1205%>%group_by(state,countyname,countyssa)%>%
+  summarise(eligibles=mean(eligibles),
+            numberofplans1=sum(enrollees>10),
+            numberofplans2=sum(penetration>0.5),
+            totalenrollees=sum(enrollees),
+            totalpenetration=100*sum(enrollees)/eligibles)%>%
+  ungroup()
+#Replace NaN value created in division with 0
+demo$totalpenetration[is.nan(demo$totalpenetration)]=0
+#Sort by state and county
+demo<-demo[order(demo$state,demo$countyname),]
+```
+## write csv
+
+```{r message=FALSE}
+write.csv(demo,file="D://task2_result.csv")
+```
+

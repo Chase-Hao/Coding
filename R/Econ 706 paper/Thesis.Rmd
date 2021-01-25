@@ -1,0 +1,655 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(reshape2)
+library(ggplot2)
+library(lubridate)
+```
+
+extract quarter data 
+```{r}
+equity_month$month=substr(equity_month$date,6,7)
+```
+
+```{r}
+# extract month
+equity_quater=subset(equity_month, month=='01' | month=='04'| month=='07'| month=='10')
+```
+```{r}
+# complete date
+equity_quater$date=paste0(equity_quater$date,'-01')
+```
+
+```{r}
+demo=data.frame(table(equity_quater$Stkcd))
+names(demo)[1]='Stkcd'
+demo=left_join(equity_quater,demo,by='Stkcd')
+demo=subset(demo, Freq!=1)
+```
+
+```{r}
+demo$date=paste0(demo$date,'-01')
+demo$date=as.Date(demo$date,"%Y-%m-%d")
+```
+```{r}
+demo1<-demo[order(demo$Stkcd,demo$date),]
+
+```
+
+Calulate quarter return
+```{r}
+
+demo1=demo1 %>% 
+group_by(Stkcd) %>%
+mutate(qReturn = Mon_p/lag(Mon_p) - 1)
+```
+
+##Financial statement
+```{r}
+sqldf('select count(distinct Stkcd) from Fstate')
+table(month$substr.Fstate.Date..5..nchar.Fstate.Date..)
+```
+
+```{r}
+bar=as.Date("1999-12-01",format="%Y-%m-%d")
+Fstate=subset(Fstate, Date>=bar)
+Fstate=subset(Fstate, Type=='A')
+Fstate$month=substr(Fstate$Date,6,nchar(Fstate$Date))
+Fstate=subset(Fstate, month!='01-01')
+Fstate$Date=as.Date(Fstate$Date,"%Y-%m-%d")+10
+Fstate$Date=as.character(Fstate$Date)
+Fstate$Date=substr(Fstate$Date,1,nchar(Fstate$Date)-2)
+Fstate$Date=paste0(Fstate$Date,'01')
+Fstate$Date=as.Date(Fstate$Date,"%Y-%m-%d")
+```
+
+
+```{r}
+Fstate$ID=paste0(Fstate$Stkcd,Fstate$Date)
+table(duplicated(Fstate$ID))
+```
+
+```{r}
+demo1$ID=paste0(demo1$Stkcd,demo1$date)
+demo=left_join(demo1,Fstate[ , c("ID", "BE")], by = "ID", all.x=TRUE)
+```
+```{r}
+table(duplicated(demo$ID))
+```
+
+fill na value with previous value
+```{r}
+demo=demo %>%
+  group_by(Stkcd) %>%
+  fill(BE, .direction = "down") %>%
+  ungroup()
+```
+
+Design portfolios
+```{r}
+#demo2<-demo2[order(demo2$date),]
+quantile=ddply(demo2, .(date), function(x) quantile(x$size,prob = seq(from =0, to=1, by=0.1)))
+```
+
+##winsorize 30% smallest##unfinished
+
+Sort Size
+```{r}
+demo=demo %>%
+  group_by(date) %>%
+  mutate(qSize = ntile(size, 10))%>%
+  ungroup()
+```
+Sort BE/BM
+```{r}
+demo2$BM=demo2$BE/demo2$size
+demo=demo2 %>%
+  group_by(date) %>%
+  mutate(qBM = ntile(BM, 10))%>%
+  ungroup()
+demo2=demo
+rm(demo)
+```
+FF25 portfolio
+```{r}
+demo=demo %>%
+  group_by(date) %>%
+  mutate(qSize5 = ntile(size, 5),qBM5 = ntile(BM, 5))%>%
+  ungroup()
+demo$FF5=paste0("SZ",demo$qSize5,"BM",demo$qBM5 )
+
+demo$date=as.Date(demo$date,"%Y/%m/%d")
+Preturn=demo %>%
+  group_by(date,FF5) %>%
+  summarise(Pqreturn = mean(qReturn))%>%
+  ungroup()
+
+```
+
+```{r}
+demo=filter(demo2,!is.na(qReturn))
+```
+
+```{r}
+demo$Port=paste(demo$qBM,demo$qSize,sep='+')
+demo=demo %>%
+  group_by(date,Port) %>%
+  mutate(Pqreturn=mean(qReturn))%>%
+  ungroup()
+```
+```{r}
+Preturn=demo %>%
+  group_by(date,Port) %>%
+  summarise(Pqreturn = mean(qReturn))
+
+
+```
+Count number
+```{r}
+write.csv(demo2,file='D:\\full_data.csv')
+```
+
+Year return data
+```{r}
+year_bond=subset(demo2, month=='01'|month=='07')
+```
+Calculate half-annual return
+```{r}
+library(dplyr)
+year_bond<-year_bond[order(year_bond$Stkcd,year_bond$date),]
+
+year_bond=year_bond %>% 
+group_by(Stkcd) %>%
+mutate(yReturn = Mon_p/lag(Mon_p) - 1) %>%
+ungroup()
+```
+calculate portfolio return
+```{r}
+year_bond$Port=paste(year_bond$qBM,year_bond$qSize,sep='-')
+year_demo=filter(year_bond,!is.na(yReturn))
+
+Pyreturn=year_demo %>%
+  group_by(date,Port) %>%
+  summarise(Pyreturn = mean(yReturn))%>%
+  ungroup()
+```
+```{r}
+write.csv(year_bond,file = 'D:\\year_bond.csv')
+write.csv(Pyreturn,file = 'D:\\Pyreturn.csv')
+```
+
+Bank Data
+```{r}
+
+broker_dealer_asset=melt(broker_dealer_asset,id.vars=c("Stkcd","name"),variable.name="date",value.name="asset")
+broker_dealer_debt=melt(broker_dealer_debt,id.vars=c("Stkcd","name"),variable.name="date",value.name="debt")
+```
+```{r}
+
+broker_dealer_asset$Stkcd=substr(broker_dealer_asset$Stkcd,1,nchar(broker_dealer_asset$Stkcd)-3)
+broker_dealer_debt$Stkcd=substr(broker_dealer_debt$Stkcd,1,nchar(broker_dealer_debt$Stkcd)-3)
+broker_dealer_asset$date=as.character(broker_dealer_asset$date)
+broker_dealer_debt$date=as.character(broker_dealer_debt$date)
+broker_dealer_asset$date=trimws(broker_dealer_asset$date,which = c("both"))
+broker_dealer_debt$date=trimws(broker_dealer_debt$date,which = c("both"))
+```
+```{r}
+broker_dealer_asset$ID=paste(broker_dealer_asset$Stkcd,broker_dealer_asset$date,sep='')
+broker_dealer_debt$ID=paste(broker_dealer_debt$Stkcd,broker_dealer_debt$date,sep='')
+broker_dealer=left_join(broker_dealer_asset,broker_dealer_debt %>% select(ID,debt) ,by='ID')
+#commercial_bank=subset(commercial_bank, select = -c(d, b ) )
+#bank=rbind(commercial_bank,state_bank)
+```
+
+```{r}
+broker_tot=broker_dealer%>%
+  group_by(date) %>%
+  summarise(tot_asset= sum(asset, na.rm=T),tot_debt= sum(debt, na.rm=T))%>%
+  ungroup()
+```
+Bank Data
+
+```{r}
+
+write.csv(broker_dealer,file='D:\\broker.csv')
+write.csv(broker_tot,file='D:\\broker_sum.csv')
+```
+
+```{r}
+broker_tot$date=as.Date(broker_tot$date,"%Y-%m-%d")
+
+```
+```{r}
+#broker_tot
+ggplot(bank_tot, aes(date, d_ratio)) + geom_line() + scale_x_date(date_breaks = "1 year", date_labels = "%y") +
+  coord_cartesian(xlim = c(
+    as.Date("2004-12-01", "%Y-%m-%d"),
+    as.Date("2020-12-31", "%Y-%m-%d")
+  ))
+
+```
+Bond data
+```{r}
+test1$Abbrnme=NULL
+test1$Listdt=NULL
+```
+
+```{r}
+library(sqldf)
+dup=sqldf('select Liscd from bndinfo group by Liscd HAVING COUNT(1)>1')
+```
+```{r}
+test1=inner_join(bndinfo,dup,by='Liscd')
+```
+```{r}
+sqldf('select count(distinct Liscd) from bond_mth')
+sqldf('select count(distinct Liscd) from bndinfo')
+sqldf('select count(distinct Liscd) from bndinfo group by Sctcd')
+```
+```{r}
+demo=sqldf('select * from bond_mth where Liscd="010004"')
+```
+```{r}
+test_p=subset(bndinfo,Sctcd!="3")
+bond=left_join(bond_mth,test_p,by='Liscd')
+```
+Test whether eliminate those info
+```{r}
+library(dplyr)
+test_Na_num=bond %>% group_by(Liscd) %>%
+  summarise(num_na=sum(is.na(Matdt)))
+```
+```{r}
+demo_na=filter(bond,is.na(Matdt))
+demo_na=demo_na[,1:3]
+```
+```{r}
+demo_na=left_join(demo_na,bndinfo,by="Liscd")
+```
+remove na value
+```{r}
+bond=filter(bond,!is.na(Matdt))
+colnames(bond)[2]="date"
+```
+```{r}
+bond$date=paste0(bond$date,"-01-01")
+bond$date=as.Date(bond$date,"%Y-%m-%d")
+```
+calculate maturity
+```{r}
+non_risk$date=as.Date(non_risk$date,"%Y-%m-%d")
+demo=left_join(bond,non_risk,by="date")
+demo$time_mat=demo$Matdt-demo$date
+demo$spread=demo$qReturn-demo$rate
+```
+
+calculate quarter return
+```{r}
+demo$date=as.character(demo$date)
+demo$month=substr(demo$date,6,7)
+demo=subset(demo, month=='01' | month=='04'| month=='07'| month=='10')
+
+demo$Matdt=as.Date(demo$Matdt,"%Y-%m-%d")
+demo<-demo[order(demo$Liscd,demo$date),]
+demo=demo %>% 
+group_by(Liscd) %>%
+mutate(qReturn = Mopnprc/lag(Mopnprc) - 1)
+
+```
+
+
+```{r}
+gov_bond=subset(demo,Bndtype=="01"|Bndtype=="04")
+cor_bond=subset(demo,Bndtype=="02"|Bndtype=="03")
+```
+```{r}
+gov_bond=filter(gov_bond,!is.na(qReturn))
+gov_bond=filter(gov_bond,qReturn!=Inf)
+gov_bond=gov_bond %>%
+  group_by(date) %>%
+  mutate(qMature = ntile(time_mat, 5))%>%
+  ungroup()
+```
+sort on spread
+```{r}
+cor_bond=filter(cor_bond,!is.na(qReturn)) 
+cor_bond=filter(cor_bond,qReturn!=Inf)
+cor_bond=cor_bond %>%
+  group_by(date) %>%
+  mutate(qSpread = ntile(spread, 20))%>%
+  ungroup()
+```
+```{r}
+write.csv(demo,file="D:\\bond_full.csv")
+write.csv(gov_bond,file="D:\\gov_bond.csv")
+write.csv(cor_bond,file="D:\\cor_bond.csv")
+write.csv(port_gov,file="D:\\port_gov.csv")
+write.csv(port_cor,file="D:\\port_cor.csv")
+```
+
+```{r}
+port_gov=gov_bond %>%
+  group_by(date,qMature) %>%
+  summarise(return = mean(qReturn))%>%
+  ungroup()
+```
+```{r}
+port_cor=cor_bond %>%
+  group_by(date,qSpread) %>%
+  summarise(return = mean(qReturn))%>%
+  ungroup()
+```
+
+Regression
+
+```{r}
+broker$name=NULL
+broker$date=as.Date(broker$date,"%Y/%m/%d")
+broker$date=broker$date+days(10)
+broker$date=substr(as.character(broker$date),1,8)
+broker$date=paste0(broker$date,"01")
+broker$date=as.Date(broker$date,"%Y-%m-%d")
+
+broker$mon = substr(as.character(broker$date), 6, 7)
+broker$yrs = substr(as.character(broker$date), 1, 4)
+broker_summary = broker %>% subset(mon == "01" | mon == "04") %>%
+  group_by(date) %>% 
+  summarise(tot_asset = sum(asset,na.rm=TRUE))%>%ungroup()
+broker_summary$yrs=substr(as.character(broker_summary$date), 1, 4)
+
+broker_summary%>%group_by(yrs)%>%arrange(date)%>%mutate(ratio=tot_asset/lag(tot_asset))%>%ungroup()
+
+```
+bank tot
+```{r}
+bank_test=bank%>%group_by(Stkcd,yrs)%>%mutate(sm=sum(debt))
+bank_test=subset(bank_test,!is.na(sm))
+bank_test=subset(bank_test,date>as.Date("2004-6-20","%Y-%m-%d"))
+
+bank_tot=bank_test%>%group_by(date)%>%summarise(tot_asset=sum(asset),tot_debt=sum(debt),d_ratio=tot_debt/tot_asset)
+
+bank_tot=bank_tot[order(bank_tot$date),]
+bank_tot$lag_ratio=lag(bank_tot$d_ratio)
+
+bank_tot=filter(bank_tot,!is.na(lag_ratio))
+```
+
+```{r}
+broker_test=broker%>%group_by(Stkcd,yrs)%>%mutate(sm=sum(debt))
+broker_test=subset(broker_test,!is.na(sm))
+broker_test=subset(broker_test,date>as.Date("2004-6-20","%Y-%m-%d"))
+
+broker_tot=broker_test%>%group_by(date)%>%summarise(tot_asset=sum(asset),tot_debt=sum(debt),d_ratio=tot_debt/tot_asset)
+
+broker_tot=broker_tot[order(broker_tot$date),]
+broker_tot$lag_ratio=lag(broker_tot$d_ratio)
+
+broker_tot=filter(broker_tot,!is.na(lag_ratio))
+
+delta=lm(d_ratio ~ lag_ratio, data = broker_tot)
+broker_tot$delta_d=delta$residuals
+
+Preturn_05$rate=Preturn_05$rate*0.01
+```
+```{r}
+Preturn_05=subset(Preturn,date>as.Date("2004-6-20","%Y-%m-%d"))
+demo=demo %>%group_by(date) %>%mutate(prop=size/sum(size))
+Market_r=demo %>%
+  group_by(date) %>%
+  summarise(Wmrk = weighted.mean(qReturn,prop))%>%
+  ungroup()
+
+non_risk$date=as.Date(non_risk$date,"%Y-%m-%d")
+Market_r=left_join(Market_r, non_risk, by='date')
+
+Preturn_05=left_join(Preturn_05,Market_r)
+
+Preturn_05=left_join(Preturn_05,broker_tot %>% select(date,delta_d),by='date')
+
+Test_05=filter(Preturn_05,!is.na(delta_d))
+```
+
+Index market return
+```{r}
+mrk=subset(mrk,code=='000001')
+mrk$y_m=substr(mrk$date,1,7)
+mrk$date=as.Date(mrk$date,format = "%Y-%m-%d")
+mrk=mrk[order(mrk$date),]
+mrk=mrk%>%group_by(y_m)%>%filter(row_number()==1)
+
+mrk$y_m=paste0(mrk$y_m,'-01')
+mrk$y_m=as.Date(mrk$y_m,format = "%Y-%m-%d")
+
+mrk$month=substr(mrk$date,6,7)
+mrk=subset(mrk, month=='01' | month=='04'| month=='07'| month=='10')
+mrk$mrk=(mrk$Index/lag(mrk$Index) - 1)
+
+mrk$date=NULL
+colnames(mrk)[which(names(mrk) == "y_m")] <- "date"
+colnames(mrk)[which(names(mrk) == "mrk")] <- "Ind_mrk"
+
+```
+
+```{r}
+Preturn_05$Pqreturn_exc=Preturn_05$Pqreturn-Preturn_05$rate
+Preturn_05$mrk=Preturn_05$return-Preturn_05$rate
+Test_05=filter(Preturn_05,!is.na(delta_d))
+```
+
+Bond market return
+```{r}
+bond_num$size=bond_num$price*bond_num$num
+bond_num$month=substr(bond_num$date,6,7)
+bond_num=subset(bond_num, month=='01' | month=='04'| month=='07'| month=='10')
+bond_num$date=paste0(bond_num$date,'-01')
+bond_num$date=as.Date(bond_num$date,format = "%Y-%m-%d")
+bond_num=bond_num[order(bond_num$date),]
+bond_num$qreturn=(bond_num$price/lag(bond_num$price) - 1)
+```
+```{r}
+bond_num=filter(bond_num,!is.na(qreturn))
+bond_num=filter(bond_num,qreturn!=Inf)
+bond_num=bond_num %>%group_by(date) %>%mutate(prop=size/sum(size))
+bond_mrk=bond_num %>%
+  group_by(date) %>%
+  summarise(Bmrk = weighted.mean(qreturn,prop))%>%
+  ungroup()
+```
+```{r}
+avg_mrk=demo %>%
+  group_by(date) %>%
+  summarise(ag_mrk = mean(Pqreturn))%>%
+  ungroup()
+Market_r=left_join(Market_r,avg_mrk,by="date")
+```
+```{r}
+mrk_mon=subset(mrk_mon,type==1)
+mrk_mon$month=substr(mrk_mon$date,6,7)
+mrk_mon$quar=0
+mrk_mon$quar[which(mrk_mon$month == "01"|mrk_mon$month == "02"|mrk_mon$month == "03")] ="04-01"
+mrk_mon$quar[which(mrk_mon$month == "04"|mrk_mon$month == "05"|mrk_mon$month == "06")] ="07-01"
+mrk_mon$quar[which(mrk_mon$month == "07"|mrk_mon$month == "08"|mrk_mon$month == "09")] ="10-01"
+mrk_mon$quar[which(mrk_mon$month == "10"|mrk_mon$month == "11"|mrk_mon$month == "12")] ="12-30"
+
+mrk_mon$y_q=paste0(substr(mrk_mon$date,1,4),'-',mrk_mon$quar)
+
+mrk_mon_1=mrk_mon%>%group_by(y_q)%>%summarise(qreturn=sum(return))
+```
+```{r}
+mrk_mon_1$date=as.Date(mrk_mon_1$y_q,format = '%Y-%m-%d')+days(10)
+mrk_mon_1$date=substr(as.character(mrk_mon_1$date),1,7)
+mrk_mon_1$date=as.Date(paste0(mrk_mon_1$date,'-01'),format = '%Y-%m-%d')
+mrk_mon_1$y_q=NULL
+```
+
+```{r}
+Preturn_05$Wmrk=NULL
+Market_r=left_join(Market_r,bond_mrk,by="date")
+Market_r=left_join(Market_r,mrk_mon_1,by="date")
+```
+
+```{r}
+Preturn_05=left_join(Preturn_05,broker_tot%>%select(d_ratio,date),by='date')
+```
+
+```{r}
+Market_r$mrk=(Market_r$qreturn+Market_r$Bmrk)/2-Market_r$rate
+Test_05=filter(Preturn_05,!is.na(delta_d))
+Test_05=left_join(Test_05,Market_r,by='date')
+Test_05=Test_05[order(Test_05$FF5),]
+fitted_models = Test_05 %>% group_by(FF5) %>% do(model = lm(Pqreturn ~ d_ratio+ag_mrk, data = .))
+
+Belta=data.frame()
+for (i in 1:25){
+  tem=as.data.frame(summary(fitted_models$model[[i]])$coefficients)
+  Belta=rbind(Belta,tem)
+}
+```
+```{r}
+B_ratio = data.frame (beta  = c(1), FF5 = c(2), mrk_b=c(3))
+ind=0
+for (i in 1:5) {
+  for (j in 1:5) {
+    ind=ind+1
+    B_ratio[ind, 1] = summary(fitted_models$model[[ind]])$coefficients[2]
+    B_ratio[ind, 2] = paste0("SZ",i,"BM",j)
+     B_ratio[ind, 3] = summary(fitted_models$model[[ind]])$coefficients[3]
+  }
+}
+```
+
+```{r}
+MF_return=Test_05 %>%
+  group_by(FF5) %>%
+  summarise(M_Freturn = mean(Pqreturn))%>%
+  ungroup()
+
+B_ratio=left_join(B_ratio,MF_return,by="FF5")
+```
+```{r}
+p_risk=lm(M_Freturn~beta+mrk_b,data = B_ratio)
+summary(p_risk)
+```
+
+Bank regression
+```{r}
+test=subset(bank_tot,!is.na(diff_res))
+```
+```{r}
+Preturn_08=subset(Preturn,date>as.Date("2007-12-30","%Y-%m-%d"))
+Preturn_08=left_join(Preturn_08,test,by="date")
+
+```
+```{r}
+library(dplyr)
+bank_reg = Preturn_08 %>% group_by(FF5) %>% do(model = lm(Pqreturn ~ d_ratio, data = .))
+bank_model=data.frame()
+for (i in 1:25){
+  tem=as.data.frame(summary(bank_reg$model[[i]])$coefficients)
+  bank_model=rbind(bank_model,tem)
+}
+```
+#bond regression
+
+```{r}
+bond_full$date=as.Date(bond_full$date,format ="%Y/%m/%d")
+port_cor$date=as.Date(port_cor$date,format = "%Y/%m/%d")
+port_gov$date=as.Date(port_gov$date,format = "%Y/%m/%d")
+
+bond_mrk=demo %>%
+  group_by(date) %>%
+  summarise(mrk = mean(qReturn))%>%
+  ungroup()
+
+non_risk$rate=0.01*non_risk$rate
+bond_mrk=left_join(bond_mrk, non_risk, by='date')
+port_cor=left_join(port_cor, bond_mrk, by='date')
+port_gov=left_join(port_gov, bond_mrk, by='date')
+
+gov_bond_05=subset(port_gov,date>as.Date("2004-6-20","%Y-%m-%d"))
+cor_bond_05=subset(port_cor,date>as.Date("2004-6-20","%Y-%m-%d"))
+
+```
+```{r}
+gov_bond_05=left_join(gov_bond_05,broker_tot %>% select(date,delta_d),by='date')
+gov_bond_05=left_join(gov_bond_05,broker_tot %>% select(date,d_ratio),by='date')
+cor_bond_05=left_join(cor_bond_05,broker_tot %>% select(date,d_ratio),by='date')
+cor_bond_05=left_join(cor_bond_05,broker_tot %>% select(date,delta_d),by='date')
+```
+
+```{r}
+gov_bond_05$mrk=NULL
+gov_bond_05$Ind_mrk=NULL
+gov_bond_05$exc_mrk=NULL
+gov_bond_05=left_join(gov_bond_05,Market_r,by='date')
+gov_bond_05=filter(gov_bond_05,!is.na(delta_d))
+gov_bond_05=gov_bond_05[order(gov_bond_05$qMature),]
+```
+
+#cor_bond
+```{r}
+cor_bond_05$mrk=NULL
+
+cor_bond_05=left_join(cor_bond_05,Market_r,by='date')
+cor_bond_05=filter(cor_bond_05,!is.na(delta_d))
+cor_bond_05=cor_bond_05[order(cor_bond_05$qSpread),]
+```
+
+
+```{r}
+cor_bond_05=cor_bond_05[order(cor_bond_05$qSpread),]
+cor_fitted_bond = cor_bond_05 %>% group_by(qSpread) %>% do(model = lm(return ~ d_ratio+ag_mrk, data = .))
+
+cor_Beta=data.frame()
+for (i in 1:20){
+  tem=as.data.frame(summary(cor_fitted_bond$model[[i]])$coefficients)
+  cor_Beta=rbind(cor_Belta,tem)
+}
+```
+```{r}
+gov_bond_05=cor_bond_05[order(gov_bond_05$qMature),]
+gov_fitted_bond = gov_bond_05 %>% group_by(qMature) %>% do(model = lm(return ~ d_ratio+ag_mrk, data = .))
+
+gov_Beta=data.frame()
+for (i in 1:5){
+  tem=as.data.frame(summary(gov_fitted_bond$model[[i]])$coefficients)
+  gov_Beta=rbind(gov_Beta,tem)
+}
+
+bond_Beta=rbind(cor_Beta,gov_Beta)
+```
+```{r}
+B_ratio_bond = data.frame (beta  = c(1), FF5 = c(2), mrk_b=c(3))
+for (i in 1:5) {
+    B_ratio_bond[i, 1] = summary(gov_fitted_bond$model[[i]])$coefficients[2]
+    B_ratio_bond[i, 2] = paste0("gov",i)
+}
+
+for (i in 1:20) {
+    ind=i+5
+    B_ratio_bond[ind, 1] = summary(cor_fitted_bond$model[[i]])$coefficients[2]
+    B_ratio_bond[ind, 2] = paste0("cor",i)
+
+}
+```
+
+```{r}
+MF_return=Test_05 %>%
+  group_by(FF5) %>%
+  summarise(M_Freturn = mean(Pqreturn))%>%
+  ungroup()
+
+B_ratio=left_join(B_ratio,MF_return,by="FF5")
+```
+```{r}
+p_risk=lm(M_Freturn~beta+mrk_b,data = B_ratio)
+summary(p_risk)
+
+```
+
+

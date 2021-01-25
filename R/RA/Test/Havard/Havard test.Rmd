@@ -1,0 +1,113 @@
+---
+title: "Havard data test"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+Sys.setlocale("LC_TIME", "English")
+```
+```{r}
+library(dplyr)
+library(ggplot2)
+library(haven)
+library(zoo)
+```
+
+# Q1 
+
+Import data 
+```{r}
+character_test <- read_dta("C:/Users/haoch/Desktop/RA test/Havard/character_test.dta")
+test_sample <- read_dta("C:/Users/haoch/Desktop/RA test/Havard/test_sample.dta")
+```
+# Q2
+
+9999998 is NA value for ces_origbal
+replace 9999998 with NA
+```{r}
+test_sample$ces_origbal[which(test_sample$ces_origbal == 9999998)] =NA
+```
+
+# Q3
+
+There is only one value for variable mbadelinquencystatus: C
+However, from Q4 I find there might be 3 , 9, 6 , _ , B , F values for mbastatus.
+Because I don't know the exact definition of this variable, I am not sure about this answer
+```{r}
+table(test_sample$mbadelinquencystatus)
+```
+
+# Q4
+
+Due to the time limit, I don't know exact definition of this variable. I think the the fifth from last character represents status possibilities 5 months ago. So I calculate the proportion of the fifth from last character which is not 'C'.
+The proportion is 0.002974926
+```{r}
+table(test_sample$mbastatushist12mos)
+```
+
+```{r}
+#define a variable for mbastatus 5 months ago
+test_sample$mbastatushist5mos=substr(test_sample$mbastatushist12mos,8,8)
+table(test_sample$mbastatushist5mos)
+1-9384/nrow(test_sample)
+```
+
+# Q5
+
+I choose all_curbal value to calculate the aggregate balance for individuals. 'all_curbal' represents all current balance (not sure)
+```{r}
+graph=test_sample%>%group_by(month)%>%summarise(agg_bal=sum(all_curbal))
+#transform month value into Year-month format
+graph$Date=as.yearmon(graph$month, '%Y%m')
+```
+```{r}
+#graph
+ggplot(graph, aes(Date, agg_bal)) + geom_line()
+```
+
+# Q6
+
+The aggregate balance keeps increasing from 2007 to 2010 and reaches the peak in 2010. Then, it keeps decreasing untill 2012. The changes in these 5 years is a boom-bust cycle.
+
+# Q7
+
+Merge
+```{r}
+demo=left_join(test_sample,character_test,by="loanid")
+```
+
+# Q8
+
+all_curbal represents current balance
+```{r}
+reg1=lm(log(all_curbal)~log(zhvi_current),data =demo)
+summary(reg1)
+```
+
+# Q9
+
+I use month variable to capture month fixed effect
+```{r}
+reg2=lm(log(all_curbal)~log(zhvi_current)+as.factor(month),data =demo)
+summary(reg2)
+```
+
+# Q10 
+
+I use efx_zipcode variable to capture zipocde fixed effect
+```{r}
+reg3=lm(log(all_curbal)~log(zhvi_current)+as.factor(month)+as.factor(efx_zipcode),data =demo)
+summary(reg3)
+```
+# Q11
+
+For regression 1, log (Zillow house prices) has significant and positive influence on log (current balance), which means increasing Zillow house prices by 1% will increase current balance by 0.63%. Intuitively, house is a necessary good for most people; and when the house price increases, people need to borrow more to buy or rent a house.
+
+For regression 2, log (Zillow house prices) has significant and positive influence on log (current balance) controlling month fixed effect, which means increasing Zillow house prices by 1% will increase current balance by 0.65% after controlling month fixed effect.  From Q5 we find balance also changes with the time. So we control time fixed effect in this regression. 
+
+For regression 3, log (Zillow house prices) has significant and positive influence on log (current balance) controlling both month and zip code fixed effects, which means increasing Zillow house prices by 1% will increase current balance by 0.35% after controlling both month and zip code fixed effects. Besides time fixed effect, the location could also influence the balance (e.g. people in big cities might have high balance). So we add zip code fixed effect in this regression.

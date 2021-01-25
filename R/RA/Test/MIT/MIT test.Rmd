@@ -1,0 +1,143 @@
+---
+title: "MIT test"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+Sys.setlocale("LC_TIME", "English")
+```
+```{r}
+library(readr)
+library(dplyr)
+library(sqldf)
+library(ggplot2)
+```
+
+# Q1 
+## Import data 
+```{r}
+SCFP2013 <- read_csv("C:/Users/haoch/Desktop/RA test/MIT/SCFP2013.csv")
+SCFP2016 <- read_csv("C:/Users/haoch/Desktop/RA test/MIT/SCFP2016.csv")
+SCFP2019 <- read_csv("C:/Users/haoch/Desktop/RA test/MIT/SCFP2019.csv")
+```
+## Add year ID and combine data
+```{r}
+SCFP2013$Year=2013
+SCFP2016$Year=2016
+SCFP2019$YeFINar=2019
+data=bind_rows(SCFP2013,SCFP2016,SCFP2019)
+```
+# Q2
+*Since this data oversamples wealthier households, we could use quantile that below 50% to represent population average. But here for simplicity, I just used average value.
+
+## Definition for variable
+
+FIN is total financial assets;
+
+STOCKS is total direct stock holdings;
+
+NMMF is total directly-held mutual funds;
+
+EDCL is education level; 4=Bachelors degree or higher;
+
+## Step 1
+Create variable 'prop_MF' (proportion of financial assets allocated to mutual funds) and 'prop_STK' (proportion of financial assets allocated to direct stock holdings)
+```{r}
+data$prop_MF=data$NMMF/data$FIN
+data$prop_STK=data$STOCKS/data$FIN
+```
+```{r}
+#set NA value as 0
+data$prop_MF[is.na(data$prop_MF)] = 0
+data$prop_STK[is.na(data$prop_STK)] = 0
+```
+## Step 2
+Select people aged 25 to 80
+Calculate average proportion by age
+```{r}
+demo=filter(data,AGE>=25 & AGE<=80)
+```
+```{r}
+demo2=demo%>%group_by(AGE)%>%summarise(avg_MF=mean(prop_MF),avg_STK=mean(prop_STK))
+```
+## Step 3
+
+Plot average proportion of mutual funds by age
+
+Plot average proportion of stocks by age
+```{r}
+ggplot(demo2, aes(x=AGE,y=avg_MF))+
+  geom_line()+
+  geom_point()+
+  scale_x_continuous(breaks = seq(25, 80, by = 5))
+```
+```{r}
+ggplot(demo2, aes(x=AGE,y=avg_STK))+
+  geom_line()+
+  geom_point()+
+  scale_x_continuous(breaks = seq(25, 80, by = 5))
+```
+
+## Step 4
+Set new variable 'Bec' to identify if this person get a Bachelor’s degree (1 means holding a degree and 0 means not)
+
+Calculate average proportion by age and by 'Bec'
+
+Separately plot the proportion
+```{r}
+demo$Bec=ifelse(demo$EDCL==4,"Bachelor","Non-Bachelor")
+```
+```{r}
+demo3=demo%>%group_by(AGE,Bec)%>%summarise(avg_MF=mean(prop_MF))
+```
+
+```{r}
+demo3$Bec=factor(demo3$Bec)
+ggplot(demo3,aes(x=AGE,y=avg_MF,color=Bec),x)+geom_point()+geom_line()
+```
+
+# Q3
+-
+## (a)
+1. Since people aged under 25 and above 80 barely have investment ability, I will choose data for people aged from 25 to 80.
+
+2.We need to test casual effect of income and age respectively. 
+
+3. For the first regression, I test casual effect of income and I will control for age, EDUC(education year),MARRIED(marriage status),RACE,LF(labor force participation).
+
+4. For the second regression, I test casual effect of age and I will control for income, MARRIED(marriage status),RACE,KIDS.
+
+*Since I am not familiar with this data, the control variables I choose may not sufficient. 
+
+Result: as we can see from these two regressions, income and age have positive relation with proportion of mutual fund allocation at 1% significance level. One dollar increase in income will lead to 3.386e-09 increase in Mutual funds proportion. One year increase in age will lead to 1.689e-03 increase in Mutual funds proportion. 
+```{r}
+#Regression 1
+reg1=lm(prop_MF~INCOME+AGE+EDUC+MARRIED+RACE+LF,data = demo)
+summary(reg1)
+```
+```{r}
+#Regression 2
+reg2=lm(prop_MF~AGE+INCOME+MARRIED+RACE+KIDS,data = demo)
+summary(reg2)
+```
+## (b)
+If we consider birth cohort effects, I will add birth cohort variable as control variable. 
+
+The interpretation could be that control for birth cohort variable and other control variables, the effect of age on proportion of mutual funds is Beta.
+
+*Due to the time limit, I didn't define the birth cohort and implement regression. 
+
+# Q4
+Based on regression 2 in Q3, I would add interaction term of age and 'Bec'(whether this person has Bachelor degree). If the interaction term is significant, it proves that the relationship between mutual fund allocation and age significantly differs for people that hold a bachelor’s degree from those who do not.
+
+The result shows that the effect of age on mutual funds allocation proportion for people without Bachelor degree (0.000819) significantly differs from people with Bachelor degree (0.00252).
+
+```{r}
+demo$Bec=as.factor(demo$Bec)
+reg3=lm(prop_MF~AGE+INCOME+MARRIED+RACE+KIDS+AGE*Bec,data = demo)
+summary(reg3)
+```
+

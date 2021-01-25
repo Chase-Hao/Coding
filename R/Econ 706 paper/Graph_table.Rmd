@@ -1,0 +1,214 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(dplyr)
+library(xtable)
+library(ggplot2)
+library(broom)
+```
+```{r}
+rm(list=setdiff(ls(), c("broker_tot")))
+#colnames(cor_bond_05)[which(names(cor_bond_05) == "rate.x")] <- "free_r"
+```
+
+
+#Data description-debt_ratio changes in bank and broker-dealer
+```{r}
+ggplot(bank_tot, aes(date, d_ratio)) + geom_line() + scale_x_date(date_breaks = "1 year", date_labels = "%y") +
+  coord_cartesian(xlim = c(
+    as.Date("2004-12-01", "%Y-%m-%d"),
+    as.Date("2020-12-31", "%Y-%m-%d")
+  ))+ylab('debt ratio')+ggtitle('Commercial bank')
+ggplot(broker_tot, aes(date, d_ratio)) + geom_line() + scale_x_date(date_breaks = "1 year", date_labels = "%y") +
+  coord_cartesian(xlim = c(
+    as.Date("2004-12-01", "%Y-%m-%d"),
+    as.Date("2020-12-31", "%Y-%m-%d")
+  ))+ylab('debt ratio')+ggtitle('Broker dealer')
+```
+```{r}
+ggplot(broker_tot, aes(date, tot_asset)) + geom_line() + scale_x_date(date_breaks = "1 year", date_labels = "%y") +
+  coord_cartesian(xlim = c(
+    as.Date("2004-12-01", "%Y-%m-%d"),
+    as.Date("2020-12-31", "%Y-%m-%d")
+  ))+ylab('tot asset')+ggtitle('Broker dealer')
+ggplot(broker_tot, aes(date, tot_debt)) + geom_line() + scale_x_date(date_breaks = "1 year", date_labels = "%y") +
+  coord_cartesian(xlim = c(
+    as.Date("2004-12-01", "%Y-%m-%d"),
+    as.Date("2020-12-31", "%Y-%m-%d")
+  ))+ylab('tot debt')+ggtitle('Broker dealer')
+```
+
+#Stock market
+##Time series Regression 
+
+Broker-dealer
+```{r}
+Test_05=Test_05[order(Test_05$FF5),]
+Test_05$exc_rt=Test_05$ag_mrk-Test_05$free_r
+fitted_models = Test_05 %>% group_by(FF5) %>% do(model = lm(Pqreturn ~ d_ratio+exc_rt, data = .))
+B_ratio = data.frame (beta  = c(1), FF5 = c(2), mrk_b=c(3),beta_t=c(4),mrk_t=c(5))
+ind=0
+for (i in 1:5) {
+  for (j in 1:5) {
+    ind = ind + 1
+    B_ratio[ind, 1] = summary(fitted_models$model[[ind]])$coefficients[2]
+    B_ratio[ind, 2] = paste0("SZ", i, "BM", j)
+    B_ratio[ind, 3] = summary(fitted_models$model[[ind]])$coefficients[3]
+    B_ratio[ind, 4] = summary(fitted_models$model[[ind]])$coefficients[8]
+    B_ratio[ind, 5] = summary(fitted_models$model[[ind]])$coefficients[9]
+  }
+}
+```
+bank
+```{r}
+Test_05=Test_05[order(Test_05$FF5),]
+
+fitted_models = Test_05 %>% group_by(FF5) %>% do(model = lm(Pqreturn ~ bank_ratio+exc_rt, data = .))
+Bnk_b_ratio = data.frame (beta  = c(1), FF5 = c(2), mrk_b=c(3),beta_t=c(4),mrk_t=c(5))
+ind=0
+for (i in 1:5) {
+  for (j in 1:5) {
+    ind = ind + 1
+    Bnk_b_ratio[ind, 1] = summary(fitted_models$model[[ind]])$coefficients[2]
+    Bnk_b_ratio[ind, 2] = paste0("SZ", i, "BM", j)
+    Bnk_b_ratio[ind, 3] = summary(fitted_models$model[[ind]])$coefficients[3]
+    Bnk_b_ratio[ind, 4] = summary(fitted_models$model[[ind]])$coefficients[8]
+    Bnk_b_ratio[ind, 5] = summary(fitted_models$model[[ind]])$coefficients[9]
+  }
+}
+
+```
+
+##Cross sectional regression to get price of risk
+Broker-dealer
+```{r}
+MF_return=Test_05 %>%
+  group_by(FF5) %>%
+  summarise(M_Freturn = mean(Pqreturn))%>%
+  ungroup()
+
+B_ratio=left_join(B_ratio,MF_return,by="FF5")
+rm(MF_return)
+```
+```{r}
+p_risk=tidy(lm(M_Freturn~beta+mrk_b,data = B_ratio))
+```
+```{r}
+summary(lm(M_Freturn~beta+mrk_b,data = B_ratio))
+```
+
+Bank
+```{r}
+MF_return=Test_05 %>%
+  group_by(FF5) %>%
+  summarise(M_Freturn = mean(Pqreturn))%>%
+  ungroup()
+Bnk_b_ratio=left_join(Bnk_b_ratio,MF_return,by="FF5")
+rm(MF_return)
+```
+```{r}
+Bnk_p_risk=tidy(lm(M_Freturn~beta+mrk_b, data = Bnk_b_ratio))
+```
+```{r}
+summary(lm(M_Freturn~beta+mrk_b, data = bank_beta))
+```
+
+#Bond market
+##Broker-dealer
+```{r}
+bond_05=bond_05[order(bond_05$port),]
+#bond_05$exc_rt=bond_05$ag_mrk-bond_05$free_r
+fitted_models = bond_05 %>% group_by(port) %>% do(model= lm(return ~ d_ratio+exc_rt, data = .))
+bond_B_ratio = data.frame (beta  = c(1), port = c(2), mrk_b=c(3),beta_t=c(4),mrk_t=c(5))
+ind=0
+for (i in 1:5) {
+    ind = ind + 1
+    bond_B_ratio[ind, 1] = summary(fitted_models$model[[i]])$coefficients[2]
+    bond_B_ratio[ind, 2] = sprintf("M%02d",i)
+    bond_B_ratio[ind, 3] = summary(fitted_models$model[[i]])$coefficients[3]
+    bond_B_ratio[ind, 4] = summary(fitted_models$model[[i]])$coefficients[8]
+    bond_B_ratio[ind, 5] = summary(fitted_models$model[[i]])$coefficients[9]
+}
+for (i in 1:20) {
+    ind = ind + 1
+    bond_B_ratio[ind, 1] = summary(fitted_models$model[[ind]])$coefficients[2]
+    bond_B_ratio[ind, 2] = sprintf("S%02d",i)
+    bond_B_ratio[ind, 3] = summary(fitted_models$model[[ind]])$coefficients[3]
+    bond_B_ratio[ind, 4] = summary(fitted_models$model[[ind]])$coefficients[8]
+    bond_B_ratio[ind, 5] = summary(fitted_models$model[[ind]])$coefficients[9]
+}
+```
+
+cross-section
+```{r}
+#gov_bond_05$port=as.numeric(substr(gov_bond_05$port,2,4))
+#gov_bond_05$port=sprintf("M%02d", gov_bond_05$port)
+#gov_bond_05$qMature=paste0('M',gov_bond_05$qMature)
+#colnames(bond_B_ratio)[which(names(bond_B_ratio) == "Spread")] <- "port"
+#bond_05=rbind(cor_bond_05,gov_bond_05)
+MF_return=bond_05 %>%
+  group_by(port) %>%
+  summarise(M_Freturn = mean(return))%>%
+  ungroup()
+
+bond_B_ratio=left_join(bond_B_ratio,MF_return,by="port")
+rm(MF_return)
+
+p_risk=tidy(lm(M_Freturn~beta+mrk_b,data = bond_B_ratio))
+```
+```{r}
+summary(lm(M_Freturn~beta+mrk_b,data = bond_B_ratio))
+```
+
+Bank equity ratio
+```{r}
+test=test[order(test$port),]
+
+fitted_models = test %>% group_by(port) %>% do(model= lm(return ~ bank_equity+exc_rt, data = .))
+bond_eq_ratio = data.frame (beta  = c(1), port = c(2), mrk_b=c(3),beta_t=c(4),mrk_t=c(5))
+ind=0
+for (i in 1:5) {
+    ind = ind + 1
+    bond_eq_ratio[ind, 1] = summary(fitted_models$model[[i]])$coefficients[2]
+    bond_eq_ratio[ind, 2] = sprintf("M%02d",i)
+    bond_eq_ratio[ind, 3] = summary(fitted_models$model[[i]])$coefficients[3]
+    bond_eq_ratio[ind, 4] = summary(fitted_models$model[[i]])$coefficients[8]
+    bond_eq_ratio[ind, 5] = summary(fitted_models$model[[i]])$coefficients[9]
+}
+for (i in 1:20) {
+    ind = ind + 1
+    bond_eq_ratio[ind, 1] = summary(fitted_models$model[[ind]])$coefficients[2]
+    bond_eq_ratio[ind, 2] = sprintf("S%02d",i)
+    bond_eq_ratio[ind, 3] = summary(fitted_models$model[[ind]])$coefficients[3]
+    bond_eq_ratio[ind, 4] = summary(fitted_models$model[[ind]])$coefficients[8]
+    bond_eq_ratio[ind, 5] = summary(fitted_models$model[[ind]])$coefficients[9]
+}
+
+```
+
+cross-section
+```{r}
+MF_return=test %>%
+  group_by(port) %>%
+  summarise(M_Freturn = mean(return))%>%
+  ungroup()
+
+bond_eq_ratio=left_join(bond_eq_ratio,MF_return,by="port")
+rm(MF_return)
+
+
+bank_eq_p_risk=tidy(lm(M_Freturn~beta+mrk_b,data = bond_eq_ratio))
+```
+```{r}
+summary(lm(M_Freturn~beta+mrk_b,data = bond_eq_ratio))
+```
+```{r}
+summary(lm(M_Freturn~beta+mrk_b,data = bond_B_ratio))
+```
+
+#linear plot
+##bond market
+

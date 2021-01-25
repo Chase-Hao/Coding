@@ -1,0 +1,73 @@
+---
+title: "Kellog data task"
+header-includes:
+output:
+  pdf_document: 
+    keep_tex: yes
+  html_document:
+    df_print: paged
+
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r,message=FALSE}
+library(dplyr)
+library(ggplot2)
+library(car)
+```
+
+# 1. data summary and clean
+I summarize the data and identify error value (NA value) in each variables. Those NA values account for a small fraction of total number of observations. So I eliminate those observations with NA values.
+```{r}
+red_sox_2009 <- read.csv("C:/Users/haoch/Desktop/RA test/Kellog data task/Red_Sox/red_sox_2009.csv")
+red_sox_2010 <- read.csv("C:/Users/haoch/Desktop/RA test/Kellog data task/Red_Sox/red_sox_2010.csv")
+red_sox_2011 <- read.csv("C:/Users/haoch/Desktop/RA test/Kellog data task/Red_Sox/red_sox_2011.csv")
+red_sox_2012 <- read.csv("C:/Users/haoch/Desktop/RA test/Kellog data task/Red_Sox/red_sox_2012.csv")
+```
+```{r}
+red_sox_2009$year=2009
+red_sox_2010$year=2010
+red_sox_2011$year=2011
+red_sox_2012$year=2012
+test=bind_rows(red_sox_2009,red_sox_2010,red_sox_2011,red_sox_2012)
+test=filter(test,!is.na(day_game)|!is.na(weekend_game))
+test$year=as.factor(test$year)
+```
+```{r}
+summary(test)
+```
+
+# 2. Visulize data
+```{r}
+ggplot(test,aes(x=days_from_transaction_until_game,y=logprice,color=year))+
+  geom_point(alpha = 0.005)+geom_smooth(method = "lm", se = FALSE)+
+  scale_colour_manual(values=c("blue","darkgreen","red","gray30"))
+```
+
+
+# 3. Causal effect model
+```{r}
+causal_reg=lm(logprice~days_from_transaction_until_game*year+
+              year+
+              factor(sectiontype)+
+              number_of_tickets+factor(gamemonth)+
+              factor(team)+factor(day_game)+
+              factor(weekend_game),data =test)
+summary(causal_reg)
+```
+# 4. Hypothesis test
+## 4.1
+```{r}
+linearHypothesis(causal_reg,c("days_from_transaction_until_game:year2010=0","days_from_transaction_until_game:year2011=0","days_from_transaction_until_game:year2012=0"))
+```
+## 4.2
+```{r}
+linearHypothesis(causal_reg,"days_from_transaction_until_game:year2010=days_from_transaction_until_game:year2011")
+linearHypothesis(causal_reg,"days_from_transaction_until_game:year2010=days_from_transaction_until_game:year2012")
+linearHypothesis(causal_reg,"days_from_transaction_until_game:year2011=days_from_transaction_until_game:year2012")
+```
+
+
